@@ -1,5 +1,6 @@
 import multiprocessing
 import asyncio
+import aiohttp
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -22,15 +23,12 @@ async def main():
 
 async def parallel_download(url):
     file_length = int(requests.head(url).headers['Content-Length'])
-    print(file_length)
     chunk_size = file_length//SPLIT_NUM
-    print(chunk_size)
 
     content = b''
     downloads = []
 
     for start in range(0, file_length, chunk_size):
-        # Change this part to implement parallelization
         downloads.append(partial_download(url, start, chunk_size))
     content = await asyncio.gather(*downloads)
     content = b''.join(content)
@@ -39,14 +37,14 @@ async def parallel_download(url):
 
 
 async def partial_download(url, start_byte, chunk_size):
-    print('starting download')
     headers = {'Range': f'bytes={start_byte}-{start_byte+chunk_size-1}'}
 
-    print(headers['Range'])
-    stream = requests.get(FILE_URL.geturl(), headers=headers)
-
-    print('finished download')
-    return stream.content
+    print(f'starting download {headers["Range"]}')
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as resp:
+            content = await resp.read()
+            print(f'finished download {headers["Range"]}')
+            return content
 
 if __name__ == '__main__':
     asyncio.run(main())
