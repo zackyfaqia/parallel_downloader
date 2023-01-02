@@ -15,13 +15,10 @@ SPLIT_NUM = 10
 
 
 async def main():
-    content = await parallel_download(FILE_URL.geturl())
-
-    with open(OUTPUT_PATH/FILE_PATH.name, 'wb') as f:
-        f.write(content)
+    content = await parallel_download(FILE_URL.geturl(), OUTPUT_PATH/FILE_PATH.name)
 
 
-async def parallel_download(url):
+async def parallel_download(url, save_path):
     file_length = int(requests.head(url).headers['Content-Length'])
     chunk_size = file_length//SPLIT_NUM
 
@@ -33,7 +30,8 @@ async def parallel_download(url):
     content = await asyncio.gather(*downloads)
     content = b''.join(content)
 
-    return content
+    with open(save_path, 'wb') as f:
+        f.write(content)
 
 
 async def partial_download(url, start_byte, chunk_size):
