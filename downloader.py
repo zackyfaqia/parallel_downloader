@@ -1,4 +1,5 @@
 import multiprocessing
+import asyncio
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -11,34 +12,41 @@ OUTPUT_PATH = Path(__file__).parent
 
 SPLIT_NUM = 10
 
-def main():
-    content = parallel_download(FILE_URL.geturl())
+
+async def main():
+    content = await parallel_download(FILE_URL.geturl())
 
     with open(OUTPUT_PATH/FILE_PATH.name, 'wb') as f:
         f.write(content)
 
-def parallel_download(url):
+
+async def parallel_download(url):
     file_length = int(requests.head(url).headers['Content-Length'])
     print(file_length)
     chunk_size = file_length//SPLIT_NUM
     print(chunk_size)
 
     content = b''
+    downloads = []
 
     for start in range(0, file_length, chunk_size):
         # Change this part to implement parallelization
-        partial_content = partial_download(url, start, chunk_size)
-        content += partial_content
-    
+        downloads.append(partial_download(url, start, chunk_size))
+    content = await asyncio.gather(*downloads)
+    content = b''.join(content)
+
     return content
 
-def partial_download(url, start_byte, chunk_size):
+
+async def partial_download(url, start_byte, chunk_size):
+    print('starting download')
     headers = {'Range': f'bytes={start_byte}-{start_byte+chunk_size-1}'}
 
     print(headers['Range'])
     stream = requests.get(FILE_URL.geturl(), headers=headers)
 
+    print('finished download')
     return stream.content
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
