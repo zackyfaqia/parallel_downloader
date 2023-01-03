@@ -28,12 +28,20 @@ async def parallel_download(urls):
         await pool.starmap(concurrent_download, args)
 
 async def concurrent_download(url, save_path):
+    # try:
+    #     file_length = int(requests.head(url).headers['Content-Length'])
+    # except requests.exceptions.ConnectionError:
+    #     print(f'Connection to {url} refused')
+    #     return
+
     try:
-        file_length = int(requests.head(url).headers['Content-Length'])
-    except requests.exceptions.ConnectionError:
-        print(f'Connection to {url} refused')
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url) as resp:
+                file_length = int(resp.headers['Content-Length'])
+    except aiohttp.ClientConnectionError:
+        print(f"Couldn't connect to {url}")
         return
-        
+
     chunk_size = file_length//(SPLIT_NUM-1)
 
     content = b''
