@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import tempfile
+import argparse
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -9,8 +10,20 @@ import aiomultiprocess
 
 OUTPUT_PATH = Path(__file__).parent # Directory for saved downloads
 
-NUM_OF_SESSION = 10     # To create a number of connection session. Each session download the total file size divided by the number of session.
-BUFFER_SIZE = 1024*5    # How much data to be stored in memory before appended to temp file
+parser = argparse.ArgumentParser(
+    description='''\
+        Parallel Downloader.
+        Download files from multiple urls in parallel.\
+        '''
+)
+parser.add_argument('urls', type=str, nargs='+', help='Url from where the file can be downloaded')
+parser.add_argument('-s', '--stream',type=int, default=10, help='number of stream to be generated per url', metavar='STREAM_COUNT')
+parser.add_argument('-b', '--buffer', type=int, default=1024*5, help='buffer size per stream', metavar='BUFFER_SIZE')
+args = parser.parse_args()
+
+
+NUM_OF_SESSION = args.stream     # To create a number of connection session. Each session download the total file size divided by the number of session.
+BUFFER_SIZE = args.buffer    # How much data to be stored in memory before appended to temp file
 
 
 async def main(*args):
@@ -49,7 +62,6 @@ async def concurrent_download(url, save_path):
 
     chunk_size = file_length//(NUM_OF_SESSION-1)
 
-    content = b''
     downloads = []
 
     for part_num, start in enumerate(range(0, file_length, chunk_size), 1):
@@ -88,4 +100,4 @@ async def _partial_download(url, start_byte, chunk_size, part_num):
     return save_path
 
 if __name__ == '__main__':
-    asyncio.run(main(*sys.argv[1:]))
+    asyncio.run(main(*args.urls))
