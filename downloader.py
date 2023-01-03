@@ -1,10 +1,11 @@
-import aiomultiprocess
 import sys
 import asyncio
-import aiohttp
 import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
+
+import aiohttp
+import aiomultiprocess
 
 OUTPUT_PATH = Path(__file__).parent # Directory for saved downloads
 
@@ -83,7 +84,7 @@ async def _partial_download(url, start_byte, chunk_size, part_num):
                     # print(f'buffer: {buffer}')
                     f.write(buffer)
                 # print('written')
-                
+
     return save_path
 
 if __name__ == '__main__':
