@@ -84,7 +84,9 @@ async def _partial_download(url, start_byte, chunk_size, part_num, buffer_size):
         Return filepath of downloaded part as a string.
     '''
     headers = {'Range': f'bytes={start_byte}-{start_byte+chunk_size}'}
-    save_path = tempfile.gettempdir() + Path(urlparse(url).path).name + f'.part{part_num}'
+    save_path = tempfile.gettempdir() + "/" + Path(urlparse(url).path).name + f'.part{part_num}'
+    # print(save_path)
+
 
     print(f'({url}) starting download {headers["Range"]}')
     async with aiohttp.ClientSession() as session:
