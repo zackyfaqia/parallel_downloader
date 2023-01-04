@@ -65,7 +65,7 @@ async def concurrent_download(url, save_path, session_num, buffer_size):
     downloads = []
 
     for part_num, start in enumerate(range(0, file_length, chunk_size), 1):
-        downloads.append(_partial_download(url, start, chunk_size, part_num, buffer_size))
+        downloads.append(_partial_download(url, start, chunk_size-1, part_num, buffer_size))
     content = await asyncio.gather(*downloads)
 
     print(f'Writing {save_path}')
@@ -83,7 +83,7 @@ async def _partial_download(url, start_byte, chunk_size, part_num, buffer_size):
         Download part of a file.
         Return filepath of downloaded part as a string.
     '''
-    headers = {'Range': f'bytes={start_byte}-{start_byte+chunk_size-1}'}
+    headers = {'Range': f'bytes={start_byte}-{start_byte+chunk_size}'}
     save_path = tempfile.gettempdir() + Path(urlparse(url).path).name + f'.part{part_num}'
 
     print(f'({url}) starting download {headers["Range"]}')
