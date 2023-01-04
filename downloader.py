@@ -1,4 +1,3 @@
-import sys
 import asyncio
 import tempfile
 import argparse
@@ -17,24 +16,23 @@ parser = argparse.ArgumentParser(
         '''
 )
 parser.add_argument('urls', type=str, nargs='+', help='Url from where the file can be downloaded')
-parser.add_argument('-s', '--stream',type=int, default=10, help='number of stream to be generated per url', metavar='STREAM_COUNT')
-parser.add_argument('-b', '--buffer', type=int, default=1024*5, help='buffer size per stream', metavar='BUFFER_SIZE')
+parser.add_argument('-s', '--stream',type=int, default=10, dest='session_num',
+                    help='number of stream to be generated per url. Each session download the total file size divided by the number of session',
+                    metavar='STREAM_COUNT')
+parser.add_argument('-b', '--buffer', type=int, default=1024*5, dest='buffer_size', 
+                    help='buffer size per stream.How much data to be stored in memory before appended to temp file', metavar='buffer_size')
 args = parser.parse_args()
 
 
-NUM_OF_SESSION = args.stream     # To create a number of connection session. Each session download the total file size divided by the number of session.
-BUFFER_SIZE = args.buffer    # How much data to be stored in memory before appended to temp file
-
-
-async def main(*args):
+async def main(*args, **kwargs):
     '''
         Run parallel download
     '''
     OUTPUT_PATH.mkdir(parents=True, exist_ok=True)  # Create necessary directory
-    await parallel_download(args)
+    await parallel_download(**kwargs)
 
 
-async def parallel_download(urls):
+async def parallel_download(urls, session_num = 10, buffer_size=1024*5):
     '''
         Download multiple files from urls simultaneously.
         Return filepaths of downloaded files as a list.
@@ -42,13 +40,13 @@ async def parallel_download(urls):
     args = []
     for url in urls:
         file_url = urlparse(url)
-        args.append((file_url.geturl(), OUTPUT_PATH/Path(file_url.path).name))
+        args.append((file_url.geturl(), OUTPUT_PATH/Path(file_url.path).name, session_num, buffer_size))
     async with aiomultiprocess.Pool() as pool:
         saved_paths = await pool.starmap(concurrent_download, args)
 
     return saved_paths
 
-async def concurrent_download(url, save_path):
+async def concurrent_download(url, save_path, session_num, buffer_size):
     '''
         Download a file asynchronously by dividing the file to multiple part and creating multiple stream for each part.
         Return filepath of downloaded file as a string.
@@ -62,12 +60,12 @@ async def concurrent_download(url, save_path):
         print(f"Couldn't connect to {url}")
         return
 
-    chunk_size = file_length//(NUM_OF_SESSION-1)
+    chunk_size = file_length//(session_num-1)
 
     downloads = []
 
     for part_num, start in enumerate(range(0, file_length, chunk_size), 1):
-        downloads.append(_partial_download(url, start, chunk_size, part_num))
+        downloads.append(_partial_download(url, start, chunk_size, part_num, buffer_size))
     content = await asyncio.gather(*downloads)
 
     print(f'Writing {save_path}')
@@ -80,7 +78,7 @@ async def concurrent_download(url, save_path):
     return save_path
 
 
-async def _partial_download(url, start_byte, chunk_size, part_num):
+async def _partial_download(url, start_byte, chunk_size, part_num, buffer_size):
     '''
         Download part of a file.
         Return filepath of downloaded part as a string.
@@ -92,15 +90,19 @@ async def _partial_download(url, start_byte, chunk_size, part_num):
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as resp:
             # content = await resp.read()
-            print(f'({url}) finished download {headers["Range"]}')
             with open(save_path, 'wb') as f:
                 # print('opened')
-                async for buffer in resp.content.iter_chunked(BUFFER_SIZE):
-                    # print(f'buffer: {buffer}')
+                downloaded = 0
+                async for buffer in resp.content.iter_chunked(buffer_size):
+                    downloaded += buffer_size
+                    # print(f'writing buffer')
+
                     f.write(buffer)
-                # print('written')
+                    # print(f'written buffer')
+                    # print(f'({url}) {headers["Range"]} downloaded {downloaded} Byte(s)')
+            print(f'({url}) finished download {headers["Range"]}')
 
     return save_path
 
 if __name__ == '__main__':
-    asyncio.run(main(*args.urls))
+    asyncio.run(main(**vars(args)))
