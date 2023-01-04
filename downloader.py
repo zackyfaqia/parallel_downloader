@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import aiohttp
 import aiomultiprocess
 
-OUTPUT_PATH = Path(__file__).parent # Directory for saved downloads
+OUTPUT_PATH = Path(__file__).parent / 'saved_download'  # Directory for saved downloads
 
 parser = argparse.ArgumentParser(
     description='''\
@@ -30,6 +30,7 @@ async def main(*args):
     '''
         Run parallel download
     '''
+    OUTPUT_PATH.mkdir(parents=True, exist_ok=True)  # Create necessary directory
     await parallel_download(args)
 
 
@@ -52,6 +53,7 @@ async def concurrent_download(url, save_path):
         Download a file asynchronously by dividing the file to multiple part and creating multiple stream for each part.
         Return filepath of downloaded file as a string.
     '''
+    print(f'Getting file information from {url}')
     try:
         async with aiohttp.ClientSession() as session:
             async with session.head(url) as resp:
@@ -68,6 +70,7 @@ async def concurrent_download(url, save_path):
         downloads.append(_partial_download(url, start, chunk_size, part_num))
     content = await asyncio.gather(*downloads)
 
+    print(f'Writing {save_path}')
     with open(save_path, 'wb') as f:
         for part in content:
             with open(part, 'rb') as p:
